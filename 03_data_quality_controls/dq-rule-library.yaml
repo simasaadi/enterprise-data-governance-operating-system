@@ -1,0 +1,174 @@
+﻿rule_library:
+  version: "1.0"
+  owner: "Data Governance Lead"
+  purpose: "Starter library of enterprise data quality rules for critical datasets and reporting assets"
+
+  rules:
+    - rule_id: DQ-001
+      rule_name: critical_field_completeness
+      dimension: completeness
+      description: "Critical fields must not be null or blank"
+      applies_to: ["customer_master", "service_request", "financial_transaction"]
+      critical_fields: ["record_id", "business_date", "status"]
+      logic: "required fields populated"
+      threshold:
+        warning: ">= 98.0%"
+        breach: "< 98.0%"
+      cadence: "daily"
+      severity: "high"
+      control_owner: "Data Steward"
+      accountable_owner: "Data Owner"
+
+    - rule_id: DQ-002
+      rule_name: primary_key_uniqueness
+      dimension: uniqueness
+      description: "Primary key values must be unique within the dataset"
+      applies_to: ["customer_master", "asset_register", "order_header"]
+      logic: "duplicate key count = 0"
+      threshold:
+        warning: "0 duplicates"
+        breach: "> 0 duplicates"
+      cadence: "daily"
+      severity: "high"
+      control_owner: "Control Owner"
+      accountable_owner: "Data Owner"
+
+    - rule_id: DQ-003
+      rule_name: valid_status_code
+      dimension: validity
+      description: "Status values must exist in the approved reference list"
+      applies_to: ["service_request", "work_order", "case_management"]
+      logic: "status in approved code set"
+      threshold:
+        warning: ">= 99.5%"
+        breach: "< 99.5%"
+      cadence: "daily"
+      severity: "medium"
+      control_owner: "Control Owner"
+      accountable_owner: "Data Owner"
+
+    - rule_id: DQ-004
+      rule_name: valid_date_range
+      dimension: validity
+      description: "Business date must fall within the expected operational period"
+      applies_to: ["transaction_fact", "inspection_log", "service_request"]
+      logic: "business_date between allowed lower and upper bounds"
+      threshold:
+        warning: ">= 99.9%"
+        breach: "< 99.9%"
+      cadence: "daily"
+      severity: "medium"
+      control_owner: "Control Owner"
+      accountable_owner: "Data Owner"
+
+    - rule_id: DQ-005
+      rule_name: parent_child_referential_integrity
+      dimension: integrity
+      description: "Child records must reference a valid parent record"
+      applies_to: ["order_line", "invoice_line", "asset_component"]
+      logic: "orphan record count = 0"
+      threshold:
+        warning: "0 orphan records"
+        breach: "> 0 orphan records"
+      cadence: "daily"
+      severity: "high"
+      control_owner: "System Owner"
+      accountable_owner: "Data Owner"
+
+    - rule_id: DQ-006
+      rule_name: cross_system_reconciliation
+      dimension: consistency
+      description: "Key counts and totals must reconcile across source and downstream outputs"
+      applies_to: ["finance_to_reporting", "operations_to_dashboard"]
+      logic: "record counts and critical totals within approved tolerance"
+      threshold:
+        warning: "<= 0.5% variance"
+        breach: "> 0.5% variance"
+      cadence: "weekly"
+      severity: "high"
+      control_owner: "Analyst"
+      accountable_owner: "Data Owner"
+
+    - rule_id: DQ-007
+      rule_name: refresh_timeliness
+      dimension: timeliness
+      description: "Datasets must be refreshed within the approved SLA window"
+      applies_to: ["daily_dashboard", "executive_report_mart", "operational_extract"]
+      logic: "refresh completed before SLA cutoff"
+      threshold:
+        warning: "<= 2 hours late"
+        breach: "> 2 hours late"
+      cadence: "daily"
+      severity: "high"
+      control_owner: "System Owner"
+      accountable_owner: "Data Owner"
+
+    - rule_id: DQ-008
+      rule_name: numeric_reasonableness_check
+      dimension: accuracy
+      description: "Key numeric values must fall within approved reasonableness bands"
+      applies_to: ["revenue_report", "waste_volume_report", "inventory_snapshot"]
+      logic: "value within approved tolerance band or supported by explanation"
+      threshold:
+        warning: "<= 2.0% unexplained variance"
+        breach: "> 2.0% unexplained variance"
+      cadence: "monthly"
+      severity: "medium"
+      control_owner: "Analyst"
+      accountable_owner: "Data Owner"
+
+    - rule_id: DQ-009
+      rule_name: mandatory_classification_tag
+      dimension: completeness
+      description: "Sensitive or shared assets must have a populated classification value"
+      applies_to: ["shared_reports", "extract_register", "documented_data_assets"]
+      logic: "classification field populated"
+      threshold:
+        warning: ">= 99.0%"
+        breach: "< 99.0%"
+      cadence: "monthly"
+      severity: "medium"
+      control_owner: "Data Steward"
+      accountable_owner: "Data Owner"
+
+    - rule_id: DQ-010
+      rule_name: approved_definition_alignment
+      dimension: consistency
+      description: "Published KPI logic must align with the approved business definition"
+      applies_to: ["executive_dashboard", "management_scorecard"]
+      logic: "calculation logic matches approved definition record"
+      threshold:
+        warning: "100% expected"
+        breach: "< 100%"
+      cadence: "monthly"
+      severity: "high"
+      control_owner: "Analyst"
+      accountable_owner: "Data Owner"
+
+    - rule_id: DQ-011
+      rule_name: closed_issue_recurrence_monitor
+      dimension: accuracy
+      description: "Previously closed material issues should not recur above the recurrence threshold"
+      applies_to: ["critical_controls", "priority_reports"]
+      logic: "repeat failure count below defined recurrence trigger"
+      threshold:
+        warning: "1 repeat occurrence"
+        breach: ">= 2 repeat occurrences in rolling 90 days"
+      cadence: "monthly"
+      severity: "high"
+      control_owner: "Data Steward"
+      accountable_owner: "Governance Lead"
+
+    - rule_id: DQ-012
+      rule_name: manual_adjustment_traceability
+      dimension: integrity
+      description: "Manual adjustments must have documented rationale, approver, and timestamp"
+      applies_to: ["reporting_workbook", "manual_extract", "reconciliation_file"]
+      logic: "all manual changes linked to traceable documentation"
+      threshold:
+        warning: ">= 99.0%"
+        breach: "< 99.0%"
+      cadence: "monthly"
+      severity: "high"
+      control_owner: "Control Owner"
+      accountable_owner: "Data Owner"
