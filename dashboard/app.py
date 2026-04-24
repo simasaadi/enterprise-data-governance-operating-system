@@ -294,22 +294,31 @@ def show_overview(
     with left:
         st.subheader("Governance KPI snapshot")
         snapshot = overview_snapshot_df(kpis)
-        fig = px.bar(
-            snapshot,
-            x="Metric",
-            y="Value",
-            text="Value",
-            title="Illustrative governance management scorecard",
-        )
-        fig.add_scatter(
-            x=snapshot["Metric"],
-            y=snapshot["Target"],
-            mode="lines+markers",
-            name="Target",
-        )
-        fig.update_layout(height=460, xaxis_title="", yaxis_title="Value")
-        fig.update_traces(textposition="outside")
-        st.plotly_chart(fig, use_container_width=True)
+        fig = go.Figure()
+
+fig.add_bar(
+    x=snapshot["Metric"],
+    y=snapshot["Value"],
+    text=snapshot["Value"],
+    textposition="outside",
+    name="Current",
+)
+
+fig.add_scatter(
+    x=snapshot["Metric"],
+    y=snapshot["Target"],
+    mode="lines+markers",
+    name="Target",
+)
+
+fig.update_layout(
+    title="Illustrative governance management scorecard",
+    height=460,
+    xaxis_title="",
+    yaxis_title="Value",
+)
+
+st.plotly_chart(fig, use_container_width=True)
 
     with right:
         st.subheader("Issue severity mix")
