@@ -5,6 +5,7 @@ A practical enterprise data governance operating system that shows how governanc
 ## Why this repository exists
 
 Most governance material stops at principles. Real organizations need something more operational:
+
 - clear decision rights
 - named ownership and stewardship
 - data quality controls with thresholds
@@ -29,6 +30,20 @@ This repository is built to show governance as an operating system rather than a
 - 90-day implementation planning, rollout strategy, and adoption planning
 - Executive-ready communication artifacts
 
+## Quick scan
+
+This repo is designed to show:
+
+- **Operating model**: governance charter, structure, decision rights, escalation
+- **Stewardship**: owner/steward model, RACI, stewardship playbook
+- **Controls**: DQ framework, thresholds, issue workflow
+- **Metadata**: glossary, dictionary, metadata model, impact analysis
+- **Access**: classification, access workflow, minimum necessary policy
+- **Issue and change**: intake, root cause, impact assessment, change notice
+- **Measurement**: KPIs, monitoring logic, maturity model
+- **Implementation**: 90-day roadmap, rollout strategy, adoption plan
+- **Executive layer**: one-page summary and deck outline
+
 ## Operating system view
 
 ```mermaid
@@ -43,6 +58,7 @@ flowchart LR
     F --> G[KPIs and Governance Maturity]
     G --> H[Implementation and Adoption]
     H --> I[Executive Reporting and Oversight]
+
 Repository structure
 01_operating-model
 
@@ -82,7 +98,7 @@ Executive summary materials and senior-level governance communication.
 
 Fast-start files
 
-Start here if you want the quickest view of the repository:
+Start here for the quickest view of the repository:
 
 09_executive_layer/one-page-governance-summary.md
 01_operating-model/governance-charter.md
@@ -119,7 +135,7 @@ enterprise data office teams
 public-sector and enterprise transformation teams
 Status
 
-Core operating model, controls, metadata, access, issue handling, KPI, implementation, and executive-layer artifacts are established. Visual dashboard assets and executive deck PDF are the next enhancement layer.
+Core operating model, stewardship artifacts, control frameworks, metadata structures, access governance assets, issue and change workflows, KPI logic, implementation planning, and executive-layer materials are established. The next enhancement layer is visual dashboards, lineage diagrams, and an executive briefing PDF.
 
 Author
 
