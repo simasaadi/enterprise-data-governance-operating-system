@@ -1,4 +1,3 @@
-
 from pathlib import Path
 
 import pandas as pd
@@ -48,14 +47,14 @@ OPTIONAL_IMAGES = {
 }
 
 
-def apply_style() -> None:
+def apply_style():
     st.markdown(
         """
         <style>
         .block-container {
             padding-top: 1rem;
             padding-bottom: 2rem;
-            max-width: 1400px;
+            max-width: 1450px;
         }
         div[data-testid="metric-container"] {
             background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
@@ -94,25 +93,28 @@ def apply_style() -> None:
 def load_sheet(path: Path, sheet_name: str) -> pd.DataFrame:
     if not path.exists():
         return pd.DataFrame()
+
     try:
         df = pd.read_excel(path, sheet_name=sheet_name, engine="openpyxl")
+        df = df.dropna(how="all").copy()
         df.columns = [str(col).strip() for col in df.columns]
-        df = df.dropna(how="all")
         return df
     except Exception:
         return pd.DataFrame()
 
 
 @st.cache_data
-def load_all_data() -> dict[str, pd.DataFrame]:
-    return {
-        key: load_sheet(meta["path"], meta["sheet"])
-        for key, meta in WORKBOOKS.items()
-    }
+def load_all_data():
+    data = {}
+    for key, meta in WORKBOOKS.items():
+        data[key] = load_sheet(meta["path"], meta["sheet"])
+    return data
 
 
-def nonempty(series: pd.Series) -> pd.Series:
-    return series.fillna("").astype(str).str.strip().ne("")
+def safe_str_series(df: pd.DataFrame, column: str) -> pd.Series:
+    if column not in df.columns:
+        return pd.Series([""] * len(df))
+    return df[column].fillna("").astype(str).str.strip()
 
 
 def pct(part: int, whole: int) -> float:
@@ -121,80 +123,8 @@ def pct(part: int, whole: int) -> float:
     return round((part / whole) * 100, 1)
 
 
-def load_image(path: Path) -> bool:
-    return path.exists()
-
-
-def build_kpis(
-    issues: pd.DataFrame,
-    access: pd.DataFrame,
-    glossary: pd.DataFrame,
-    dictionary: pd.DataFrame,
-) -> dict[str, float | int]:
-    owner_coverage = 0.0
-    if not dictionary.empty and {"Owner", "Steward"}.issubset(dictionary.columns):
-        owner_coverage = pct(
-            ((nonempty(dictionary["Owner"])) & (nonempty(dictionary["Steward"]))).sum(),
-            len(dictionary),
-        )
-
-    glossary_approval = 0.0
-    if not glossary.empty and "Status" in glossary.columns:
-        glossary_approval = pct(
-            glossary["Status"].astype(str).str.strip().str.lower().eq("approved").sum(),
-            len(glossary),
-        )
-
-    open_high_risk = 0
-    assigned_issue_rate = 0.0
-    recurring_issues = 0
-    if not issues.empty:
-        if {"Severity", "Status"}.issubset(issues.columns):
-            sev = issues["Severity"].astype(str).str.strip().str.lower()
-            stat = issues["Status"].astype(str).str.strip().str.lower()
-            open_high_risk = int(
-                ((sev.isin(["high", "critical"])) & (~stat.isin(["closed", "validated"]))).sum()
-            )
-        if "Assigned Owner" in issues.columns:
-            assigned_issue_rate = pct(nonempty(issues["Assigned Owner"]).sum(), len(issues))
-        if "Recurrence" in issues.columns:
-            recurring_issues = int(
-                issues["Recurrence"].astype(str).str.strip().str.lower().eq("yes").sum()
-            )
-
-    documented_access_rate = 0.0
-    sensitive_requests = 0
-    exception_requests = 0
-    if not access.empty:
-        if {"Decision", "Decision Owner"}.issubset(access.columns):
-            documented_access_rate = pct(
-                ((nonempty(access["Decision"])) & (nonempty(access["Decision Owner"]))).sum(),
-                len(access),
-            )
-        if "Sensitive Data Involved" in access.columns:
-            sensitive_requests = int(
-                access["Sensitive Data Involved"].astype(str).str.strip().str.lower().eq("yes").sum()
-            )
-        if "Request Type" in access.columns:
-            exception_requests = int(
-                access["Request Type"].astype(str).str.strip().str.lower().str.contains("exception", na=False).sum()
-            )
-
-    maturity_score = 3.8
-    training_completion = 88.0
-
-    return {
-        "Owner coverage %": owner_coverage,
-        "Glossary approval %": glossary_approval,
-        "Open high-risk issues": open_high_risk,
-        "Issue owner assignment %": assigned_issue_rate,
-        "Documented access decision %": documented_access_rate,
-        "Sensitive requests": sensitive_requests,
-        "Exception requests": exception_requests,
-        "Recurring issues": recurring_issues,
-        "Training completion %": training_completion,
-        "Maturity score": maturity_score,
-    }
+def image_exists(key: str) -> bool:
+    return OPTIONAL_IMAGES[key].exists()
 
 
 def maturity_df() -> pd.DataFrame:
@@ -216,7 +146,84 @@ def maturity_df() -> pd.DataFrame:
     )
 
 
-def overview_snapshot_df(kpis: dict[str, float | int]) -> pd.DataFrame:
+def build_kpis(
+    issues: pd.DataFrame,
+    access: pd.DataFrame,
+    glossary: pd.DataFrame,
+    dictionary: pd.DataFrame,
+):
+    owner_coverage = 0.0
+    glossary_approval = 0.0
+    open_high_risk = 0
+    issue_owner_assignment = 0.0
+    recurring_issues = 0
+    documented_access = 0.0
+    sensitive_requests = 0
+    exception_requests = 0
+    training_completion = 88.0
+    maturity_score = round(maturity_df()["Score"].mean(), 1)
+
+    if not dictionary.empty and {"Owner", "Steward"}.issubset(dictionary.columns):
+        owners = safe_str_series(dictionary, "Owner").ne("")
+        stewards = safe_str_series(dictionary, "Steward").ne("")
+        owner_coverage = pct(int((owners & stewards).sum()), len(dictionary))
+
+    if not glossary.empty and "Status" in glossary.columns:
+        approved = safe_str_series(glossary, "Status").str.lower().eq("approved")
+        glossary_approval = pct(int(approved.sum()), len(glossary))
+
+    if not issues.empty:
+        if {"Severity", "Status"}.issubset(issues.columns):
+            sev = safe_str_series(issues, "Severity").str.lower()
+            stat = safe_str_series(issues, "Status").str.lower()
+            open_high_risk = int(
+                ((sev.isin(["high", "critical"])) & (~stat.isin(["closed", "validated"]))).sum()
+            )
+
+        if "Assigned Owner" in issues.columns:
+            issue_owner_assignment = pct(
+                int(safe_str_series(issues, "Assigned Owner").ne("").sum()),
+                len(issues),
+            )
+
+        if "Recurrence" in issues.columns:
+            recurring_issues = int(
+                safe_str_series(issues, "Recurrence").str.lower().eq("yes").sum()
+            )
+
+    if not access.empty:
+        if {"Decision", "Decision Owner"}.issubset(access.columns):
+            documented = (
+                safe_str_series(access, "Decision").ne("")
+                & safe_str_series(access, "Decision Owner").ne("")
+            )
+            documented_access = pct(int(documented.sum()), len(access))
+
+        if "Sensitive Data Involved" in access.columns:
+            sensitive_requests = int(
+                safe_str_series(access, "Sensitive Data Involved").str.lower().eq("yes").sum()
+            )
+
+        if "Request Type" in access.columns:
+            exception_requests = int(
+                safe_str_series(access, "Request Type").str.lower().str.contains("exception", na=False).sum()
+            )
+
+    return {
+        "Owner coverage %": owner_coverage,
+        "Glossary approval %": glossary_approval,
+        "Open high-risk issues": open_high_risk,
+        "Issue owner assignment %": issue_owner_assignment,
+        "Recurring issues": recurring_issues,
+        "Documented access decision %": documented_access,
+        "Sensitive requests": sensitive_requests,
+        "Exception requests": exception_requests,
+        "Training completion %": training_completion,
+        "Maturity score": maturity_score,
+    }
+
+
+def snapshot_df(kpis: dict) -> pd.DataFrame:
     return pd.DataFrame(
         {
             "Metric": [
@@ -240,8 +247,8 @@ def overview_snapshot_df(kpis: dict[str, float | int]) -> pd.DataFrame:
     )
 
 
-def status_badge(loaded: bool) -> str:
-    return "✅ Loaded" if loaded else "⚠️ Missing"
+def status_badge(ok: bool) -> str:
+    return "✅ Loaded" if ok else "⚠️ Missing"
 
 
 def show_overview(
@@ -249,10 +256,10 @@ def show_overview(
     access: pd.DataFrame,
     glossary: pd.DataFrame,
     dictionary: pd.DataFrame,
-) -> None:
+):
     st.title("Enterprise Data Governance Control Tower")
     st.caption(
-        "Interactive governance dashboard built from the operating artifacts already stored in this repository."
+        "Interactive governance dashboard built from the governance operating system repository."
     )
 
     st.markdown(
@@ -293,72 +300,81 @@ def show_overview(
 
     with left:
         st.subheader("Governance KPI snapshot")
-        snapshot = overview_snapshot_df(kpis)
+        snapshot = snapshot_df(kpis)
+
         fig = go.Figure()
-
-fig.add_bar(
-    x=snapshot["Metric"],
-    y=snapshot["Value"],
-    text=snapshot["Value"],
-    textposition="outside",
-    name="Current",
-)
-
-fig.add_scatter(
-    x=snapshot["Metric"],
-    y=snapshot["Target"],
-    mode="lines+markers",
-    name="Target",
-)
-
-fig.update_layout(
-    title="Illustrative governance management scorecard",
-    height=460,
-    xaxis_title="",
-    yaxis_title="Value",
-)
-
-st.plotly_chart(fig, use_container_width=True)
+        fig.add_trace(
+            go.Bar(
+                x=snapshot["Metric"],
+                y=snapshot["Value"],
+                text=snapshot["Value"],
+                textposition="outside",
+                name="Current",
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=snapshot["Metric"],
+                y=snapshot["Target"],
+                mode="lines+markers",
+                name="Target",
+            )
+        )
+        fig.update_layout(
+            title="Illustrative governance management scorecard",
+            height=460,
+            xaxis_title="",
+            yaxis_title="Value",
+            margin=dict(l=20, r=20, t=60, b=60),
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
     with right:
         st.subheader("Issue severity mix")
         if not issues.empty and "Severity" in issues.columns:
             sev = (
-                issues["Severity"]
-                .astype(str)
-                .str.strip()
+                safe_str_series(issues, "Severity")
                 .value_counts()
                 .rename_axis("Severity")
                 .reset_index(name="Count")
             )
-            fig2 = px.pie(sev, names="Severity", values="Count", hole=0.45)
-            fig2.update_layout(height=300)
-            st.plotly_chart(fig2, use_container_width=True)
+            if not sev.empty:
+                fig2 = px.pie(sev, names="Severity", values="Count", hole=0.45)
+                fig2.update_layout(height=300, margin=dict(l=20, r=20, t=40, b=20))
+                st.plotly_chart(fig2, use_container_width=True)
+            else:
+                st.info("No issue severity values found.")
         else:
             st.info("Issue sheet not available.")
 
         st.subheader("Access request mix")
         if not access.empty and "Request Type" in access.columns:
             req = (
-                access["Request Type"]
-                .astype(str)
-                .str.strip()
+                safe_str_series(access, "Request Type")
                 .value_counts()
                 .rename_axis("Request Type")
                 .reset_index(name="Count")
             )
-            fig3 = px.bar(req, x="Request Type", y="Count", text="Count")
-            fig3.update_layout(height=300, xaxis_title="", yaxis_title="Count")
-            st.plotly_chart(fig3, use_container_width=True)
+            if not req.empty:
+                fig3 = px.bar(req, x="Request Type", y="Count", text="Count")
+                fig3.update_layout(
+                    height=300,
+                    xaxis_title="",
+                    yaxis_title="Count",
+                    margin=dict(l=20, r=20, t=40, b=40),
+                )
+                st.plotly_chart(fig3, use_container_width=True)
+            else:
+                st.info("No access request type values found.")
         else:
             st.info("Access sheet not available.")
 
-    if load_image(OPTIONAL_IMAGES["kpi_preview"]):
+    if image_exists("kpi_preview"):
         st.subheader("Dashboard preview asset")
         st.image(str(OPTIONAL_IMAGES["kpi_preview"]), use_container_width=True)
 
 
-def show_raci(raci: pd.DataFrame) -> None:
+def show_raci(raci: pd.DataFrame):
     st.title("RACI and Stewardship")
     st.caption("Governance accountability across the operating model.")
 
@@ -371,7 +387,7 @@ def show_raci(raci: pd.DataFrame) -> None:
 
     if search and "Governance Activity" in table.columns:
         table = table[
-            table["Governance Activity"].astype(str).str.contains(search, case=False, na=False)
+            safe_str_series(table, "Governance Activity").str.contains(search, case=False, na=False)
         ]
 
     c1, c2 = st.columns((1.2, 1))
@@ -383,30 +399,39 @@ def show_raci(raci: pd.DataFrame) -> None:
         st.markdown("### Role concentration")
         raci_cols = [col for col in table.columns if col not in ["Governance Activity", "Notes"]]
         counts = []
+
         for col in raci_cols:
+            col_series = safe_str_series(table, col)
             counts.append(
                 {
                     "Role": col,
-                    "A count": table[col].astype(str).str.contains(r"\bA\b", regex=True, na=False).sum(),
-                    "R count": table[col].astype(str).str.contains(r"\bR\b", regex=True, na=False).sum(),
-                    "C count": table[col].astype(str).str.contains(r"\bC\b", regex=True, na=False).sum(),
+                    "A count": int(col_series.str.contains(r"\bA\b", regex=True, na=False).sum()),
+                    "R count": int(col_series.str.contains(r"\bR\b", regex=True, na=False).sum()),
+                    "C count": int(col_series.str.contains(r"\bC\b", regex=True, na=False).sum()),
                 }
             )
 
         summary = pd.DataFrame(counts)
-        fig = go.Figure()
-        fig.add_bar(name="Accountable", x=summary["Role"], y=summary["A count"])
-        fig.add_bar(name="Responsible", x=summary["Role"], y=summary["R count"])
-        fig.add_bar(name="Consulted", x=summary["Role"], y=summary["C count"])
-        fig.update_layout(barmode="group", height=430, xaxis_title="", yaxis_title="Count")
-        st.plotly_chart(fig, use_container_width=True)
+        if not summary.empty:
+            fig = go.Figure()
+            fig.add_bar(name="Accountable", x=summary["Role"], y=summary["A count"])
+            fig.add_bar(name="Responsible", x=summary["Role"], y=summary["R count"])
+            fig.add_bar(name="Consulted", x=summary["Role"], y=summary["C count"])
+            fig.update_layout(
+                barmode="group",
+                height=430,
+                xaxis_title="",
+                yaxis_title="Count",
+                margin=dict(l=20, r=20, t=40, b=60),
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
-    if load_image(OPTIONAL_IMAGES["raci_preview"]):
+    if image_exists("raci_preview"):
         st.subheader("RACI artifact preview")
         st.image(str(OPTIONAL_IMAGES["raci_preview"]), use_container_width=True)
 
 
-def show_issues(issues: pd.DataFrame) -> None:
+def show_issues(issues: pd.DataFrame):
     st.title("Issue Management")
     st.caption("Structured issue intake, triage, ownership, and remediation tracking.")
 
@@ -419,41 +444,53 @@ def show_issues(issues: pd.DataFrame) -> None:
     with left:
         severity = st.multiselect(
             "Severity",
-            sorted(issues["Severity"].dropna().astype(str).unique()) if "Severity" in issues.columns else [],
+            sorted(safe_str_series(issues, "Severity").replace("", pd.NA).dropna().unique())
+            if "Severity" in issues.columns
+            else [],
         )
     with mid:
         category = st.multiselect(
             "Category",
-            sorted(issues["Category"].dropna().astype(str).unique()) if "Category" in issues.columns else [],
+            sorted(safe_str_series(issues, "Category").replace("", pd.NA).dropna().unique())
+            if "Category" in issues.columns
+            else [],
         )
     with right:
         status = st.multiselect(
             "Status",
-            sorted(issues["Status"].dropna().astype(str).unique()) if "Status" in issues.columns else [],
+            sorted(safe_str_series(issues, "Status").replace("", pd.NA).dropna().unique())
+            if "Status" in issues.columns
+            else [],
         )
 
     table = issues.copy()
 
     if severity and "Severity" in table.columns:
-        table = table[table["Severity"].astype(str).isin(severity)]
+        table = table[safe_str_series(table, "Severity").isin(severity)]
     if category and "Category" in table.columns:
-        table = table[table["Category"].astype(str).isin(category)]
+        table = table[safe_str_series(table, "Category").isin(category)]
     if status and "Status" in table.columns:
-        table = table[table["Status"].astype(str).isin(status)]
+        table = table[safe_str_series(table, "Status").isin(status)]
 
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Issues shown", len(table))
     m2.metric(
         "High / Critical",
-        int(table["Severity"].astype(str).str.lower().isin(["high", "critical"]).sum()) if "Severity" in table.columns else 0,
+        int(safe_str_series(table, "Severity").str.lower().isin(["high", "critical"]).sum())
+        if "Severity" in table.columns
+        else 0,
     )
     m3.metric(
         "Recurring",
-        int(table["Recurrence"].astype(str).str.lower().eq("yes").sum()) if "Recurrence" in table.columns else 0,
+        int(safe_str_series(table, "Recurrence").str.lower().eq("yes").sum())
+        if "Recurrence" in table.columns
+        else 0,
     )
     m4.metric(
         "Assigned owners",
-        int(nonempty(table["Assigned Owner"]).sum()) if "Assigned Owner" in table.columns else 0,
+        int(safe_str_series(table, "Assigned Owner").ne("").sum())
+        if "Assigned Owner" in table.columns
+        else 0,
     )
 
     st.dataframe(table, use_container_width=True, hide_index=True)
@@ -463,33 +500,35 @@ def show_issues(issues: pd.DataFrame) -> None:
     with chart_left:
         if "Category" in table.columns:
             cat = (
-                table["Category"]
-                .astype(str)
+                safe_str_series(table, "Category")
                 .value_counts()
                 .rename_axis("Category")
                 .reset_index(name="Count")
             )
-            fig = px.bar(cat, x="Category", y="Count", text="Count", title="Issues by category")
-            st.plotly_chart(fig, use_container_width=True)
+            if not cat.empty:
+                fig = px.bar(cat, x="Category", y="Count", text="Count", title="Issues by category")
+                fig.update_layout(margin=dict(l=20, r=20, t=50, b=40))
+                st.plotly_chart(fig, use_container_width=True)
 
     with chart_right:
         if "Status" in table.columns:
             stat = (
-                table["Status"]
-                .astype(str)
+                safe_str_series(table, "Status")
                 .value_counts()
                 .rename_axis("Status")
                 .reset_index(name="Count")
             )
-            fig = px.bar(stat, x="Status", y="Count", text="Count", title="Issues by status")
-            st.plotly_chart(fig, use_container_width=True)
+            if not stat.empty:
+                fig = px.bar(stat, x="Status", y="Count", text="Count", title="Issues by status")
+                fig.update_layout(margin=dict(l=20, r=20, t=50, b=40))
+                st.plotly_chart(fig, use_container_width=True)
 
-    if load_image(OPTIONAL_IMAGES["issue_preview"]):
+    if image_exists("issue_preview"):
         st.subheader("Issue log artifact preview")
         st.image(str(OPTIONAL_IMAGES["issue_preview"]), use_container_width=True)
 
 
-def show_access(access: pd.DataFrame) -> None:
+def show_access(access: pd.DataFrame):
     st.title("Access Governance")
     st.caption("Decision traceability, minimum-necessary logic, and access request monitoring.")
 
@@ -502,41 +541,53 @@ def show_access(access: pd.DataFrame) -> None:
     with left:
         classification = st.multiselect(
             "Classification",
-            sorted(access["Classification"].dropna().astype(str).unique()) if "Classification" in access.columns else [],
+            sorted(safe_str_series(access, "Classification").replace("", pd.NA).dropna().unique())
+            if "Classification" in access.columns
+            else [],
         )
     with mid:
         request_type = st.multiselect(
             "Request Type",
-            sorted(access["Request Type"].dropna().astype(str).unique()) if "Request Type" in access.columns else [],
+            sorted(safe_str_series(access, "Request Type").replace("", pd.NA).dropna().unique())
+            if "Request Type" in access.columns
+            else [],
         )
     with right:
         decision = st.multiselect(
             "Decision",
-            sorted(access["Decision"].dropna().astype(str).unique()) if "Decision" in access.columns else [],
+            sorted(safe_str_series(access, "Decision").replace("", pd.NA).dropna().unique())
+            if "Decision" in access.columns
+            else [],
         )
 
     table = access.copy()
 
     if classification and "Classification" in table.columns:
-        table = table[table["Classification"].astype(str).isin(classification)]
+        table = table[safe_str_series(table, "Classification").isin(classification)]
     if request_type and "Request Type" in table.columns:
-        table = table[table["Request Type"].astype(str).isin(request_type)]
+        table = table[safe_str_series(table, "Request Type").isin(request_type)]
     if decision and "Decision" in table.columns:
-        table = table[table["Decision"].astype(str).isin(decision)]
+        table = table[safe_str_series(table, "Decision").isin(decision)]
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Requests shown", len(table))
     c2.metric(
         "Sensitive data involved",
-        int(table["Sensitive Data Involved"].astype(str).str.lower().eq("yes").sum()) if "Sensitive Data Involved" in table.columns else 0,
+        int(safe_str_series(table, "Sensitive Data Involved").str.lower().eq("yes").sum())
+        if "Sensitive Data Involved" in table.columns
+        else 0,
     )
     c3.metric(
         "High risk",
-        int(table["Risk Level"].astype(str).str.lower().eq("high").sum()) if "Risk Level" in table.columns else 0,
+        int(safe_str_series(table, "Risk Level").str.lower().eq("high").sum())
+        if "Risk Level" in table.columns
+        else 0,
     )
     c4.metric(
         "Exception requests",
-        int(table["Request Type"].astype(str).str.lower().str.contains("exception", na=False).sum()) if "Request Type" in table.columns else 0,
+        int(safe_str_series(table, "Request Type").str.lower().str.contains("exception", na=False).sum())
+        if "Request Type" in table.columns
+        else 0,
     )
 
     st.dataframe(table, use_container_width=True, hide_index=True)
@@ -546,33 +597,35 @@ def show_access(access: pd.DataFrame) -> None:
     with left_chart:
         if "Decision" in table.columns:
             dec = (
-                table["Decision"]
-                .astype(str)
+                safe_str_series(table, "Decision")
                 .value_counts()
                 .rename_axis("Decision")
                 .reset_index(name="Count")
             )
-            fig = px.bar(dec, x="Decision", y="Count", text="Count", title="Decision outcomes")
-            st.plotly_chart(fig, use_container_width=True)
+            if not dec.empty:
+                fig = px.bar(dec, x="Decision", y="Count", text="Count", title="Decision outcomes")
+                fig.update_layout(margin=dict(l=20, r=20, t=50, b=40))
+                st.plotly_chart(fig, use_container_width=True)
 
     with right_chart:
         if "Risk Level" in table.columns:
             risk = (
-                table["Risk Level"]
-                .astype(str)
+                safe_str_series(table, "Risk Level")
                 .value_counts()
                 .rename_axis("Risk Level")
                 .reset_index(name="Count")
             )
-            fig = px.pie(risk, names="Risk Level", values="Count", hole=0.45, title="Risk distribution")
-            st.plotly_chart(fig, use_container_width=True)
+            if not risk.empty:
+                fig = px.pie(risk, names="Risk Level", values="Count", hole=0.45, title="Risk distribution")
+                fig.update_layout(margin=dict(l=20, r=20, t=50, b=20))
+                st.plotly_chart(fig, use_container_width=True)
 
-    if load_image(OPTIONAL_IMAGES["access_preview"]):
+    if image_exists("access_preview"):
         st.subheader("Access decision log preview")
         st.image(str(OPTIONAL_IMAGES["access_preview"]), use_container_width=True)
 
 
-def show_metadata(glossary: pd.DataFrame, dictionary: pd.DataFrame) -> None:
+def show_metadata(glossary: pd.DataFrame, dictionary: pd.DataFrame):
     st.title("Metadata and Definitions")
     st.caption("Business glossary and data dictionary coverage for governed assets.")
 
@@ -585,14 +638,16 @@ def show_metadata(glossary: pd.DataFrame, dictionary: pd.DataFrame) -> None:
         else:
             if "Status" in glossary.columns:
                 status_df = (
-                    glossary["Status"]
-                    .astype(str)
+                    safe_str_series(glossary, "Status")
                     .value_counts()
                     .rename_axis("Status")
                     .reset_index(name="Count")
                 )
-                fig = px.pie(status_df, names="Status", values="Count", hole=0.45, title="Glossary status")
-                st.plotly_chart(fig, use_container_width=True)
+                if not status_df.empty:
+                    fig = px.pie(status_df, names="Status", values="Count", hole=0.45, title="Glossary status")
+                    fig.update_layout(margin=dict(l=20, r=20, t=50, b=20))
+                    st.plotly_chart(fig, use_container_width=True)
+
             st.dataframe(glossary, use_container_width=True, hide_index=True)
 
     with right:
@@ -602,14 +657,22 @@ def show_metadata(glossary: pd.DataFrame, dictionary: pd.DataFrame) -> None:
         else:
             if "Classification" in dictionary.columns:
                 cls_df = (
-                    dictionary["Classification"]
-                    .astype(str)
+                    safe_str_series(dictionary, "Classification")
                     .value_counts()
                     .rename_axis("Classification")
                     .reset_index(name="Count")
                 )
-                fig = px.bar(cls_df, x="Classification", y="Count", text="Count", title="Dictionary classification mix")
-                st.plotly_chart(fig, use_container_width=True)
+                if not cls_df.empty:
+                    fig = px.bar(
+                        cls_df,
+                        x="Classification",
+                        y="Count",
+                        text="Count",
+                        title="Dictionary classification mix",
+                    )
+                    fig.update_layout(margin=dict(l=20, r=20, t=50, b=40))
+                    st.plotly_chart(fig, use_container_width=True)
+
             st.dataframe(dictionary, use_container_width=True, hide_index=True)
 
 
@@ -618,12 +681,12 @@ def show_kpis_and_maturity(
     access: pd.DataFrame,
     glossary: pd.DataFrame,
     dictionary: pd.DataFrame,
-) -> None:
+):
     st.title("KPIs and Maturity")
     st.caption("Governance measurement view for management follow-up.")
 
     kpis = build_kpis(issues, access, glossary, dictionary)
-    snapshot = overview_snapshot_df(kpis)
+    snapshot = snapshot_df(kpis)
     maturity = maturity_df()
 
     st.subheader("Governance KPI table")
@@ -645,7 +708,12 @@ def show_kpis_and_maturity(
             mode="lines+markers",
             name="Target",
         )
-        fig.update_layout(height=460, xaxis_title="", yaxis_title="Score")
+        fig.update_layout(
+            height=460,
+            xaxis_title="",
+            yaxis_title="Score",
+            margin=dict(l=20, r=20, t=60, b=70),
+        )
         st.plotly_chart(fig, use_container_width=True)
 
     with right:
@@ -666,11 +734,11 @@ def show_kpis_and_maturity(
                 },
             )
         )
-        gauge.update_layout(height=460)
+        gauge.update_layout(height=460, margin=dict(l=20, r=20, t=60, b=20))
         st.plotly_chart(gauge, use_container_width=True)
 
 
-def show_flows() -> None:
+def show_flows():
     st.title("Flows and Lineage")
     st.caption("Governance process flow and reporting lineage views.")
 
@@ -678,56 +746,59 @@ def show_flows() -> None:
 
     with left:
         st.subheader("Reporting lineage")
-        if load_image(OPTIONAL_IMAGES["reporting_lineage"]):
+        if image_exists("reporting_lineage"):
             st.image(str(OPTIONAL_IMAGES["reporting_lineage"]), use_container_width=True)
         else:
-            st.graphviz_chart(
-                """
-                digraph {
-                    rankdir=LR;
-                    node [shape=box, style="rounded,filled", color="#334155", fillcolor="#0f172a", fontcolor="white"];
-                    CRM [label="CRM"];
-                    ERP [label="ERP"];
-                    SVC [label="Service Request System"];
-                    STG [label="Staging / Integration"];
-                    RULES [label="Business Rules + Validation"];
-                    MART [label="Certified Reporting Mart"];
-                    KPI [label="KPI Dashboard"];
-                    EXEC [label="Executive Reporting"];
-
-                    CRM -> STG;
-                    ERP -> STG;
-                    SVC -> STG;
-                    STG -> RULES;
-                    RULES -> MART;
-                    MART -> KPI;
-                    KPI -> EXEC;
+            reporting_flow = pd.DataFrame(
+                {
+                    "Stage": [
+                        "CRM / ERP / Service Systems",
+                        "Staging / Integration",
+                        "Business Rules and Validation",
+                        "Certified Reporting Mart",
+                        "KPI Dashboard",
+                        "Executive Reporting",
+                    ],
+                    "Purpose": [
+                        "Source operational records",
+                        "Standardize and combine feeds",
+                        "Apply approved transformations and checks",
+                        "Create governed reporting layer",
+                        "Present management KPIs",
+                        "Support leadership reporting",
+                    ],
                 }
-                """
             )
+            st.dataframe(reporting_flow, use_container_width=True, hide_index=True)
 
     with right:
         st.subheader("Access request governance flow")
-        if load_image(OPTIONAL_IMAGES["access_lineage"]):
+        if image_exists("access_lineage"):
             st.image(str(OPTIONAL_IMAGES["access_lineage"]), use_container_width=True)
         else:
-            st.graphviz_chart(
-                """
-                digraph {
-                    rankdir=LR;
-                    node [shape=box, style="rounded,filled", color="#334155", fillcolor="#0f172a", fontcolor="white"];
-                    RQ [label="Request Submitted"];
-                    CL [label="Classification Check"];
-                    MN [label="Minimum Necessary Review"];
-                    OW [label="Data Owner Approval"];
-                    PR [label="Provisioning"];
-                    LG [label="Decision Logged"];
-                    RV [label="Periodic Review"];
-
-                    RQ -> CL -> MN -> OW -> PR -> LG -> RV;
+            access_flow = pd.DataFrame(
+                {
+                    "Step": [
+                        "Request submitted",
+                        "Classification check",
+                        "Minimum necessary review",
+                        "Data owner approval",
+                        "Provisioning",
+                        "Decision logging",
+                        "Periodic review",
+                    ],
+                    "Purpose": [
+                        "Start governed access process",
+                        "Confirm sensitivity",
+                        "Prevent over-permissioning",
+                        "Create accountable decision",
+                        "Execute technical access",
+                        "Preserve traceability",
+                        "Support expiry and recertification",
+                    ],
                 }
-                """
             )
+            st.dataframe(access_flow, use_container_width=True, hide_index=True)
 
     st.markdown(
         """
@@ -740,7 +811,7 @@ def show_flows() -> None:
     )
 
 
-def show_example() -> None:
+def show_example():
     st.title("End-to-End Example")
     st.caption("How the operating system handles a sensitive access request from intake to review.")
 
@@ -802,7 +873,7 @@ def show_example() -> None:
     )
 
 
-def sidebar_status(data: dict[str, pd.DataFrame]) -> str:
+def sidebar_status(data):
     st.sidebar.title("Control Tower Navigation")
     page = st.sidebar.radio(
         "Go to",
@@ -831,10 +902,11 @@ def sidebar_status(data: dict[str, pd.DataFrame]) -> str:
         '<div class="subtle">This app reads the governance workbooks already stored in the repository and turns them into an interactive management-facing dashboard.</div>',
         unsafe_allow_html=True,
     )
+
     return page
 
 
-def main() -> None:
+def main():
     apply_style()
     data = load_all_data()
     page = sidebar_status(data)
