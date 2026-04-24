@@ -43,7 +43,8 @@ flowchart LR
     F --> G[KPIs and Governance Maturity]
     G --> H[Implementation and Adoption]
     H --> I[Executive Reporting and Oversight]
-Repository structure
+
+## Repository structure
 01_operating-model
 
 Core governance structure, decision rights, escalation logic, and operating authority.
