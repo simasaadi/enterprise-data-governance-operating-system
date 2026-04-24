@@ -2,6 +2,17 @@
 
 A practical enterprise data governance operating system that shows how governance moves from policy into accountable roles, working controls, metadata structures, access governance, issue handling, KPI monitoring, and implementation.
 
+[![Launch](https://img.shields.io/badge/%E2%9C%88%20Launch-Streamlit%20Dashboard-FF4B4B?style=flat-square)](https://enterprise-data-governance-operating-system-exgkrxub7appgm3cnc.streamlit.app)
+![Python](https://img.shields.io/badge/Python-Project-3776AB?style=flat-square&logo=python&logoColor=white)
+![Governance](https://img.shields.io/badge/Data%20Governance-Control%20Tower-0A7F5A?style=flat-square)
+![License](https://img.shields.io/badge/License-MIT-97CA00?style=flat-square)
+
+## Live dashboard
+
+The interactive public demo for this project is here:
+
+[Open the Streamlit dashboard](https://enterprise-data-governance-operating-system-exgkrxub7appgm3cnc.streamlit.app)
+
 ## Why this repository exists
 
 Most governance material stops at principles. Real organizations need something more operational:
