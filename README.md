@@ -36,7 +36,7 @@ This repo is designed to show:
 
 - **Operating model**: governance charter, structure, decision rights, escalation
 - **Stewardship**: owner/steward model, RACI, stewardship playbook
-- **Controls**: DQ framework, thresholds, issue workflow
+- **Controls**: data quality framework, thresholds, issue workflow
 - **Metadata**: glossary, dictionary, metadata model, impact analysis
 - **Access**: classification, access workflow, minimum necessary policy
 - **Issue and change**: intake, root cause, impact assessment, change notice
@@ -59,85 +59,83 @@ flowchart LR
     G --> H[Implementation and Adoption]
     H --> I[Executive Reporting and Oversight]
 ```
-Repository structure
-01_operating-model
 
+## Repository structure
+
+### 01_operating-model
 Core governance structure, decision rights, escalation logic, and operating authority.
 
-02_roles_and_stewardship
-
+### 02_roles_and_stewardship
 Role model, stewardship playbook, and accountability design.
 
-03_data_quality_controls
-
+### 03_data_quality_controls
 Data quality framework, rule logic, thresholds, issue workflows, and monitoring concepts.
 
-04_metadata_and_lineage
-
+### 04_metadata_and_lineage
 Business glossary, data dictionary, metadata model, lineage support, and impact analysis.
 
-05_access_and_privacy
-
+### 05_access_and_privacy
 Classification model, access workflows, minimum-necessary access logic, and access decision support.
 
-06_issue_and_change_management
-
+### 06_issue_and_change_management
 Issue intake, root cause analysis, change assessment, and structured change communication.
 
-07_kpis_and_governance_maturity
-
+### 07_kpis_and_governance_maturity
 Governance KPIs, monitoring logic, and maturity progression model.
 
-08_implementation
-
+### 08_implementation
 90-day roadmap, rollout logic, training, and adoption planning.
 
-09_executive_layer
-
+### 09_executive_layer
 Executive summary materials and senior-level governance communication.
 
-Fast-start files
+## Fast-start files
 
 Start here for the quickest view of the repository:
 
-09_executive_layer/one-page-governance-summary.md
-01_operating-model/governance-charter.md
-03_data_quality_controls/dq-framework.md
-05_access_and_privacy/data-classification-model.md
-07_kpis_and_governance_maturity/governance-kpis.md
-08_implementation/90_day_roadmap.md
-Practical use cases
+- `09_executive_layer/one-page-governance-summary.md`
+- `01_operating-model/governance-charter.md`
+- `03_data_quality_controls/dq-framework.md`
+- `05_access_and_privacy/data-classification-model.md`
+- `07_kpis_and_governance_maturity/governance-kpis.md`
+- `08_implementation/90_day_roadmap.md`
 
-See USE_CASES.md for example scenarios such as:
+## Practical use cases
 
-repeated KPI variance
-sensitive extract access requests
-conflicting business definitions
-material reporting logic changes
-first 90 days of governance rollout
-Design principles
-Governance must be operational, not symbolic
-Accountability must be explicit
-Controls should be measurable
-Metadata should support action, not only documentation
-Access decisions should be risk-based and traceable
-Change must be communicated through defined pathways
-Governance should produce evidence of effectiveness
-Intended audience
+See `USE_CASES.md` for example scenarios such as:
+
+- repeated KPI variance
+- sensitive extract access requests
+- conflicting business definitions
+- material reporting logic changes
+- first 90 days of governance rollout
+
+## Design principles
+
+- Governance must be operational, not symbolic
+- Accountability must be explicit
+- Controls should be measurable
+- Metadata should support action, not only documentation
+- Access decisions should be risk-based and traceable
+- Change must be communicated through defined pathways
+- Governance should produce evidence of effectiveness
+
+## Intended audience
 
 This repository is designed for:
 
-data governance leads
-data management managers
-data stewards and data owners
-analytics and reporting leaders
-enterprise data office teams
-public-sector and enterprise transformation teams
-Status
+- data governance leads
+- data management managers
+- data stewards and data owners
+- analytics and reporting leaders
+- enterprise data office teams
+- public-sector and enterprise transformation teams
+
+## Status
 
 Core operating model, stewardship artifacts, control frameworks, metadata structures, access governance assets, issue and change workflows, KPI logic, implementation planning, and executive-layer materials are established. The next enhancement layer is visual dashboards, lineage diagrams, and an executive briefing PDF.
 
-Author
+## Author
 
-Sima Saadi
+**Sima Saadi**  
 Applied data science, analytics engineering, governance design, reporting controls, and public-sector operating model development.
