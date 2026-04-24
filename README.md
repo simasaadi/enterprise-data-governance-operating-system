@@ -43,52 +43,6 @@ flowchart LR
     F --> G[KPIs and Governance Maturity]
     G --> H[Implementation and Adoption]
     H --> I[Executive Reporting and Oversight]
-@'
-# Enterprise Data Governance Operating System
-
-A practical enterprise data governance operating system that shows how governance moves from policy into accountable roles, working controls, metadata structures, access governance, issue handling, KPI monitoring, and implementation.
-
-## Why this repository exists
-
-Most governance material stops at principles. Real organizations need something more operational:
-- clear decision rights
-- named ownership and stewardship
-- data quality controls with thresholds
-- metadata and lineage structures
-- access approval logic and minimum-necessary rules
-- issue and change workflows
-- governance KPIs and maturity tracking
-- rollout, training, and adoption planning
-
-This repository is built to show governance as an operating system rather than a policy document.
-
-## What this repository demonstrates
-
-- Enterprise governance operating model design
-- Data owner and steward accountability structures
-- Data quality framework, rule library, thresholds, and issue workflows
-- Business glossary, data dictionary, and metadata operating model
-- Lineage and impact analysis thinking
-- Data classification, access control logic, and privacy-aware access governance
-- Issue intake, escalation, root cause analysis, and change impact management
-- Governance KPIs, monitoring logic, and maturity assessment
-- 90-day implementation planning, rollout strategy, and adoption planning
-- Executive-ready communication artifacts
-
-## Operating system view
-
-```mermaid
-flowchart LR
-    A[Governance Charter and Structure] --> B[Roles and Stewardship]
-    B --> C[Data Quality Controls]
-    B --> D[Metadata and Lineage]
-    B --> E[Access and Privacy]
-    C --> F[Issue and Change Management]
-    D --> F
-    E --> F
-    F --> G[KPIs and Governance Maturity]
-    G --> H[Implementation and Adoption]
-    H --> I[Executive Reporting and Oversight]
 Repository structure
 01_operating-model
 
